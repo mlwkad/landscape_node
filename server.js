@@ -14,6 +14,10 @@ const app = express();
 // 设置服务器监听端口
 const port = 3000;
 
+// 禁用 Express 的响应缓冲，确保流式响应立即发送
+app.set('etag', false); // 禁用 ETag 生成
+app.set('x-powered-by', false); // 禁用 X-Powered-By 头
+
 //解决跨域(必须在使用中间件之前)
 app.use(cors({
     origin: ['http://localhost:5173'], // 允许来自 localhost:5173 的请求
@@ -30,7 +34,11 @@ app.use(compression({
         if (req.headers['x-no-compression']) {
             return false;
         }
-        // 强制所有响应都尝试压缩
+        // 不对SSE流式响应进行压缩，避免缓冲问题
+        if (req.path.includes('/chat/stream')) {
+            return false;
+        }
+        // 强制所有其他响应都尝试压缩
         return true;
     },
     // 设置应该压缩的内容类型
