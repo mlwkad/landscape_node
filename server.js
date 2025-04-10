@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import axios from 'axios';
+import session from 'express-session';
 import authRoutes from './module/authModule.js';
 import pictureRoutes from './module/pictureModule.js';
 import chatRoutes from './module/chatModule.js';
@@ -24,6 +25,18 @@ app.use(cors({
     methods: ['GET', 'POST'], // 允许的 HTTP 方法
     allowedHeaders: ['Content-Type', 'Accept-Encoding'] // 允许的请求头
 }));
+
+// 配置session中间件
+app.use(session({
+    secret: 'a4f8071f7b8992de34281db843182e3c2589920aa8ad5c5c3af7f67dd9ff25c9',
+    resave: false,
+    saveUninitialized: true,
+    cookie: { 
+        secure: process.env.NODE_ENV === 'production', // 在生产环境中使用HTTPS
+        maxAge: 24 * 60 * 60 * 1000 // 24小时
+    }
+}));
+
 // 使用中间件解析 JSON 格式的请求体
 app.use(bodyParser.json());
 // 开启压缩功能

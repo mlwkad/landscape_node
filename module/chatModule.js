@@ -8,6 +8,14 @@ const XUNFEI_API_URL = 'https://spark-api-open.xf-yun.com/v1/chat/completions';
 // const API_PASSWORD = 'ShpsjHBxeqSsFfTcDJGk:oUuYyhMCunBDegUnKqrS';  //lite模型
 const API_PASSWORD = 'aTshaQawqHQfFnyEYJpM:HDtHRUGpERoilPpbhrON';  //MAX模型
 
+// 设置是否启用联网搜索
+router.get('/chat/onlineSearch', (req, res) => {
+    const { isSure } = req.query;
+    // 使用session存储每个用户的设置
+    req.session.enableOnlineSearch = isSure === 'true';
+    res.json({ success: true, enableOnlineSearch: req.session.enableOnlineSearch });
+});
+
 // 流式聊天
 router.get('/chat/stream', async (req, res) => {
     try {
@@ -24,17 +32,17 @@ router.get('/chat/stream', async (req, res) => {
         const requestData = {
             // model: 'lite',
             model: 'generalv3.5',
-            messages: [{ role: 'user', content: message }], // 修改role为'user'
+            messages: [{ role: 'user', content: message }], 
             stream: true,  // 告诉讯飞API使用流式响应
             temperature: 0.5,
-            max_tokens: 1024,
-            "tools": [
+            max_tokens: 4096,
+            tools: [
                 {
-                    "type": "web_search",
-                    "web_search": {
-                        "enable": true,  // 自动判断是否联网
-                        "show_ref_label": true,  // 返回联网搜索相关内容
-                        "search_mode": "deep" // deep:深度搜索 / normal:标准搜索
+                    type: "web_search",
+                    web_search: {
+                        enable: true,
+                        show_ref_label: req.session.enableOnlineSearch || false,  // 使用session中的设置，默认不开
+                        search_mode: "deep" // deep:深度搜索 / normal:标准搜索
                     }
                 }
             ],
@@ -84,6 +92,7 @@ router.get('/chat/stream', async (req, res) => {
                             }
                             else if (jsonData.choices && jsonData.choices.length > 0) {
                                 content = jsonData.choices[0]?.delta?.content || jsonData.choices[0]?.content || ''
+                                // console.log(content)
                             }
                             // 转发到客户端
                             if (content || onlineInfo) {
