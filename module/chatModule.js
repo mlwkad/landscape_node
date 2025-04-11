@@ -25,8 +25,8 @@ router.get('/chat/stream', async (req, res) => {
 
         // 1. 设置响应头支持 SSE（Server-Sent Events）
         res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Connection', 'keep-alive');
+        res.setHeader('Cache-Control', 'no-cache');  //不让浏览器缓存响应，防止浏览器使用缓存数据而不使用新数据
+        res.setHeader('Connection', 'keep-alive');  //保持连接，防止浏览器断开连接
 
         // 2. 配置请求参数，将 stream 参数设置为 true
         const requestData = {
