@@ -1,6 +1,17 @@
 import express from 'express';
-import allpictures from '../config/database.js';
+import mysql from 'mysql2/promise';
 import { pictureData } from './pictures.js';
+
+// 数据连接池
+const allpictures = mysql.createPool({
+    host: 'localhost',
+    user: 'root',
+    password: 'qweee',
+    database: 'allpictures',
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
+});
 
 const router = express.Router();
 

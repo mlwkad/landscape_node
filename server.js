@@ -22,7 +22,7 @@ app.set('x-powered-by', false); // 禁用 X-Powered-By 头
 //解决跨域(必须在使用中间件之前)
 app.use(cors({
     origin: ['http://localhost:5173'], // 允许来自 localhost:5173 的请求
-    methods: ['GET', 'POST'], // 允许的 HTTP 方法
+    methods: ['GET', 'POST', 'PUT', 'DELETE'], // 允许的 HTTP 方法
     allowedHeaders: ['Content-Type', 'Accept-Encoding'] // 允许的请求头
 }));
 
@@ -31,7 +31,7 @@ app.use(session({
     secret: 'a4f8071f7b8992de34281db843182e3c2589920aa8ad5c5c3af7f67dd9ff25c9',
     resave: false,
     saveUninitialized: true,
-    cookie: { 
+    cookie: {
         secure: process.env.NODE_ENV === 'production', // 在生产环境中使用HTTPS
         maxAge: 24 * 60 * 60 * 1000 // 24小时
     }
@@ -39,6 +39,7 @@ app.use(session({
 
 // 使用中间件解析 JSON 格式的请求体
 app.use(bodyParser.json());
+
 // 开启压缩功能
 app.use(compression({
     level: 6, // 压缩级别，默认为6

@@ -1,5 +1,6 @@
 import express from 'express';
 import axios from 'axios';
+import mysql from 'mysql2/promise';
 
 const router = express.Router();
 
@@ -8,12 +9,49 @@ const XUNFEI_API_URL = 'https://spark-api-open.xf-yun.com/v1/chat/completions';
 // const API_PASSWORD = 'ShpsjHBxeqSsFfTcDJGk:oUuYyhMCunBDegUnKqrS';  //lite模型
 const API_PASSWORD = 'aTshaQawqHQfFnyEYJpM:HDtHRUGpERoilPpbhrON';  //MAX模型
 
+// 创建MySQL连接池
+const chatPool = mysql.createPool({
+    host: 'localhost',
+    user: 'root',
+    password: 'qweee',
+    database: 'XunFei_Chat',
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
+});
+
+// 初始化聊天数据库表
+// async function initChatDatabase() {
+//     try {
+//         // 使用await等待连接
+//         const connection = await chatPool.getConnection();
+//         try {
+//             // 创建chat_content表，如果不存在
+//             await connection.query(`
+//                 CREATE TABLE IF NOT EXISTS chat_content (
+//                     id INT AUTO_INCREMENT PRIMARY KEY,
+//                     content TEXT NOT NULL
+//                 )
+//             `);
+//             console.log('聊天数据库表初始化成功');
+//         } finally {
+//             // 确保释放连接
+//             connection.release();
+//         }
+//     } catch (error) {
+//         console.error('聊天数据库表初始化失败:', error);
+//     }
+// }
+
+// 数据更新时启动一次
+// initChatDatabase()
+
 // 设置是否启用联网搜索
 router.get('/chat/onlineSearch', (req, res) => {
     const { isSure } = req.query;
     // 使用session存储每个用户的设置
     req.session.enableOnlineSearch = isSure === 'true';
-    res.json({ success: true, enableOnlineSearch: req.session.enableOnlineSearch });
+    res.json({ success: true, enableOnlineSearch: req.session.enableOnlineSearch })
 });
 
 // 流式聊天
@@ -32,7 +70,7 @@ router.get('/chat/stream', async (req, res) => {
         const requestData = {
             // model: 'lite',
             model: 'generalv3.5',
-            messages: [{ role: 'user', content: message }], 
+            messages: [{ role: 'user', content: message }],
             stream: true,  // 告诉讯飞API使用流式响应
             temperature: 0.5,
             max_tokens: 4096,
@@ -125,6 +163,140 @@ router.get('/chat/stream', async (req, res) => {
     }
 });
 
+// 获取所有聊天内容
+router.get('/chat/getAllContent', async (req, res) => {
+    try {
+        const [rows] = await chatPool.query('SELECT * FROM chat_content ORDER BY id DESC');
+        // 将数据转换为所需格式
+        const allContent = rows.map(row => ({
+            id: row.id,
+            content: JSON.parse(row.content)
+        }));
+        res.json(allContent);
+    } catch (error) {
+        console.error('获取聊天数据失败:', error);
+        res.status(500).json({
+            error: 'Internal Server Error',
+            details: error.message
+        });
+    }
+});
 
+// 添加新的聊天内容
+router.post('/chat/addToAllContent', async (req, res) => {
+    try {
+        const { id, content } = req.body;
+        if (!content || !Array.isArray(content)) {
+            return res.status(400).json({ error: '内容格式不正确，应为数组' });
+        }
+        // 将内容存储为JSON字符串
+        const stringContent = JSON.stringify(content);
+        let result;
+        // 如果提供了id，使用该id插入
+        if (id) {
+            // 检查id是否已存在
+            const [exists] = await chatPool.query('SELECT id FROM chat_content WHERE id = ?', [id]);
+            if (exists.length > 0) {
+                return res.status(400).json({ error: `ID ${id} 已存在，请使用其他ID` });
+            }
+            [result] = await chatPool.query(
+                'INSERT INTO chat_content (id, content) VALUES (?, ?)',
+                [id, stringContent]
+            );
+            res.status(201).json({
+                id: id,
+                content
+            });
+        } else {
+            // 没有提供id，使用自增id
+            [result] = await chatPool.query(
+                'INSERT INTO chat_content (content) VALUES (?)',
+                [stringContent]
+            );
+            res.status(201).json({
+                id: result.insertId,
+                content
+            });
+        }
+    } catch (error) {
+        console.error('添加聊天数据失败:', error);
+        res.status(500).json({
+            error: 'Internal Server Error',
+            details: error.message
+        });
+    }
+});
+
+// 更新聊天内容
+router.put('/chat/updateContent', async (req, res) => {
+    try {
+        const { id, content } = req.body;
+        if (!id) {
+            return res.status(400).json({ error: '缺少id参数' });
+        }
+        if (!content || !Array.isArray(content)) {
+            return res.status(400).json({ error: '内容格式不正确，应为数组' });
+        }
+        const stringContent = JSON.stringify(content);
+        await chatPool.query(
+            'UPDATE chat_content SET content = ? WHERE id = ?',
+            [stringContent, parseInt(id)]
+        );
+        res.json({
+            id: parseInt(id),
+            content
+        });
+    } catch (error) {
+        console.error('更新聊天数据失败:', error);
+        res.status(500).json({
+            error: 'Internal Server Error',
+            details: error.message
+        });
+    }
+});
+
+// 根据id查找聊天内容
+router.get('/chat/getContent', async (req, res) => {
+    try {
+        const { id } = req.query;
+        if (!id) {
+            return res.status(400).json({ error: '缺少id参数' });
+        }
+        const [rows] = await chatPool.query('SELECT * FROM chat_content WHERE id = ?', [parseInt(id)]);
+        if (rows.length === 0) {
+            return res.status(404).json({ error: '未找到对应ID的内容' });
+        }
+        // 转换返回格式为 {id: number, content: array}
+        const result = {
+            id: rows[0].id,
+            content: JSON.parse(rows[0].content)
+        };
+        res.json(result);
+    } catch (error) {
+        console.error('获取聊天内容失败:', error);
+        res.status(500).json({
+            error: 'Internal Server Error',
+            details: error.message
+        });
+    }
+});
+
+// 删除聊天内容
+router.delete('/chat/deleteContent/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!id) {
+            return res.status(400).json({ error: '缺少id参数' });
+        }
+        await chatPool.query('DELETE FROM chat_content WHERE id = ?', [parseInt(id)]);
+        res.json({ id: parseInt(id) });
+    } catch (error) {
+        console.error('删除聊天数据失败:', error);
+        res.status(500).json({
+            error: 'Internal Server Error',
+            details: error.message
+        });
+    }
+});
 
 export default router;
