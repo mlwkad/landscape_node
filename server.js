@@ -8,6 +8,12 @@ import authRoutes from './module/authModule.js';
 import pictureRoutes from './module/pictureModule.js';
 import chatRoutes from './module/chatModule.js';
 import compression from 'compression';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// 获取当前文件的目录路径
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // 创建 express 应用实例
 const app = express();
@@ -25,6 +31,9 @@ app.use(cors({
     methods: ['GET', 'POST', 'PUT', 'DELETE'], // 允许的 HTTP 方法
     allowedHeaders: ['Content-Type', 'Accept-Encoding'] // 允许的请求头
 }));
+
+// 配置静态文件服务中间件，使pic目录下的图片可以通过/pic路径访问
+app.use('/pic', express.static(path.join(__dirname, 'pic')));
 
 // 配置session中间件
 app.use(session({

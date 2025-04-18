@@ -1,6 +1,7 @@
 import express from 'express';
 import mysql from 'mysql2/promise';
-import { pictureData } from './pictures.js';
+import { pictureData } from './pictures.js'
+import { oldPictureData } from './oldPictures.js'
 
 // 数据连接池
 const allpictures = mysql.createPool({
@@ -25,7 +26,8 @@ async function init() {
             await connection.execute('DELETE FROM pictures');
             await connection.execute('DELETE FROM categories');
             // 插入分类数据
-            for (const category of pictureData) {
+            // for (const category of pictureData) {
+            for (const category of oldPictureData) {
                 // 插入分类
                 const [categoryResult] = await connection.execute(
                     'INSERT INTO categories (id, name) VALUES (?, ?)',
