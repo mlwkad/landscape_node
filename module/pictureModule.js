@@ -84,7 +84,7 @@ async function init() {
 }
 
 // 数据更新时启动一次
-init();
+// init();
 
 // 获取图片列表路由（从数据库获取）
 router.get('/homeShowPicture', async (req, res) => {
